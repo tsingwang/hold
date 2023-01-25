@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  grafana:
+    image: grafana/grafana:9.2.1
+    user: root
+    ports:
+      - "3000:3000"
+    volumes:
+      - /home/tsing/data/grafana:/var/lib/grafana
+      - /home/tsing/.hold/hold.sqlite3:/hold/hold.sqlite3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
