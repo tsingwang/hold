@@ -8,15 +8,12 @@ from .db import Session, Account, Holding, TradeHistory
 @click.command()
 @click.argument("account_id", type=int)
 @click.argument("code")
-@click.argument("action", type=click.Choice(['B', 'S']))
 @click.argument("price", type=float)
 @click.argument("amount", type=int)
 @click.option("-d", "--date", default=datetime.date.today())
 @click.option("-n", "--note", default="")
-def trade(date, account_id, code, action, price, amount, note):
+def trade(date, account_id, code, price, amount, note):
     date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
-    if action == "S":
-        amount *= -1
     cost = price * amount
 
     with Session.begin() as session:

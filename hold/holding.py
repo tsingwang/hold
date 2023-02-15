@@ -26,11 +26,11 @@ async def fetch_prices():
 
 
 def show_account_stats():
-    columns = ["本金", "市值", "沪市", "深市", "现金", "场外现金"]
+    columns = ["", "本金", "市值", "沪市", "深市", "现金", "场外现金"]
     index, data = [], []
     with Session.begin() as session:
         for account in session.query(Account):
-            index.append(account.name)
+            index.append(account.id)
             cash = account.cash
             sh, sz, b, other = 0, 0, 0, 0
             for hold in account.holdings:
@@ -44,9 +44,17 @@ def show_account_stats():
                     b += prices[hold.code] * hold.amount * HKDCNY
                 else:
                     other += prices[hold.code] * hold.amount
-            row = [account.init, cash + sh + sz + b + other, sh, sz, cash,
-                   account.cash_outside]
-            data.append([d/10000 for d in row])
+
+            data.append([
+                account.name,
+                account.init / 10000,
+                (cash + sh + sz + b + other) / 10000,
+                sh / 10000,
+                sz / 10000,
+                cash / 10000,
+                account.cash_outside / 10000,
+            ])
+
     print(pd.DataFrame(data, index, columns))
 
 
@@ -125,6 +133,7 @@ def show_hold_stats():
                 tmp_df = pd.DataFrame(data, columns=["", "市值", "仓位"])
                 df = pd.concat([df, tmp_df], axis=1)
         df.fillna("", inplace=True)
+        df.index += 1
         print(df)
 
 
@@ -245,14 +254,12 @@ def show_profit_stats():
 async def holding(readonly=True):
     await fetch_prices()
 
-    show_account_stats()
-
-    print()
     if not readonly:
         run_hold_stats()
-    show_hold_stats()
-
-    print()
-    if not readonly:
         run_profit_stats()
+
+    show_account_stats()
+    print()
+    show_hold_stats()
+    print()
     show_profit_stats()
