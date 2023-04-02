@@ -6,6 +6,7 @@ from .dividend import dividend
 from .holding import holding
 from .profit import profit
 from .trade import trade
+from .transfer import transfer
 
 
 @click.group(invoke_without_command=True)
@@ -18,3 +19,4 @@ def cli(ctx, readonly):
 cli.add_command(dividend)
 cli.add_command(profit)
 cli.add_command(trade)
+cli.add_command(transfer)

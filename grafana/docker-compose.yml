@@ -8,6 +8,7 @@ services:
     volumes:
       - /home/tsing/data/grafana:/var/lib/grafana
       - /home/tsing/.hold/hold.sqlite3:/hold/hold.sqlite3
+      - /home/tsing/.txd/txd.sqlite3:/txd/txd.sqlite3
     logging:
       driver: json-file
       options:

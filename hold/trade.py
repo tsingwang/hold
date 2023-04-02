@@ -38,6 +38,6 @@ def trade(date, account_id, code, price, amount, note):
 
         assert hold.amount >= 0, f"账户{account.id} {hold.code} 数量不能为负数"
 
-        print(f"账户{account.id} {hold.code} {price} {amount}股 剩余{hold.amount}股")
+        print(f"账户{account.id} {hold.code} {price} {amount}股 剩余{hold.amount}股 余额{account.cash}")
 
         click.confirm('Are you sure?', abort=True)
