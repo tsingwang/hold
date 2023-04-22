@@ -2,6 +2,8 @@ import calendar
 import datetime
 
 import pandas as pd
+from rich.console import Console
+from rich.table import Table
 from txd.services import Xueqiu
 
 from .db import Session, Stock, Account, Holding, HoldHistory, HoldStats, ProfitStats
@@ -184,20 +186,22 @@ def run_profit_stats():
 def show_profit_stats():
     with Session.begin() as session:
         profit = session.query(ProfitStats).order_by(ProfitStats.date.desc()).first()
-        print("A股{:.2f}% B股{:.2f}% 转债{:.2f}% ETF {:.2f}% HK {:.2f}% 现金{:.2f}%".\
-            format(100 * profit.a / profit.total,
-                   100 * profit.b / profit.total,
-                   100 * profit.cb / profit.total,
-                   100 * profit.etf / profit.total,
-                   100 * profit.etf_hk / profit.total,
-                   100 * profit.cash / profit.total))
-        print("A股{:.2f} B股{:.2f} 转债{:.2f} ETF {:.2f} HK {:.2f} 现金{:.2f}".\
-            format(profit.a / 10000,
-                   profit.b / 10000,
-                   profit.cb / 10000,
-                   profit.etf / 10000,
-                   profit.etf_hk / 10000,
-                   profit.cash / 10000))
+        table = Table(box=None, show_header=False)
+        table.add_row('A股{:.2f}%'.format(100 * profit.a / profit.total),
+                      'B股{:.2f}%'.format(100 * profit.b / profit.total),
+                      '转债{:.2f}%'.format(100 * profit.cb / profit.total),
+                      'ETF {:.2f}%'.format(100 * profit.etf / profit.total),
+                      'HK {:.2f}%'.format(100 * profit.etf_hk / profit.total),
+                      '现金{:.2f}%'.format(100 * profit.cash / profit.total),
+                      '[red]仓位{:.2f}%[/]'.format(100 - 100 * profit.cash / profit.total))
+        table.add_row('A股{:.2f}'.format(profit.a / 10000),
+                      'B股{:.2f}'.format(profit.b / 10000),
+                      '转债{:.2f}'.format(profit.cb / 10000),
+                      'ETF {:.2f}'.format(profit.etf / 10000),
+                      'HK {:.2f}'.format(profit.etf_hk / 10000),
+                      '现金{:.2f}'.format(profit.cash / 10000),)
+        Console().print(table)
+
         print("总本金{:.2f} 总资产{:.2f} 净资产{:.2f}".\
             format(profit.init / 10000,
                    profit.total / 10000,
@@ -226,18 +230,18 @@ def show_profit_stats():
                 filter(ProfitStats.flag_year == True).\
                 order_by(ProfitStats.date.desc()).first()
         print()
-        print("本日{:.2f}% 本周{:.2f}% 本月{:.2f}% 本季{:.2f}% 本年{:.2f}%".format(
-            100 * growth(last_day, profit),
-            100 * growth(last_week, profit),
-            100 * growth(last_month, profit),
-            100 * growth(last_quarter, profit),
-            100 * growth(last_year, profit)))
-        print("本日{:.2f} 本周{:.2f} 本月{:.2f} 本季{:.2f} 本年{:.2f}".format(
-            increase(last_day, profit) / 10000,
-            increase(last_week, profit) / 10000,
-            increase(last_month, profit) / 10000,
-            increase(last_quarter, profit) / 10000,
-            increase(last_year, profit) / 10000))
+        table = Table(box=None, show_header=False)
+        table.add_row('本日{:.2f}%'.format(100 * growth(last_day, profit)),
+                      '本周{:.2f}%'.format(100 * growth(last_week, profit)),
+                      '本月{:.2f}%'.format(100 * growth(last_month, profit)),
+                      '本季{:.2f}%'.format(100 * growth(last_quarter, profit)),
+                      '[red]本年{:.2f}%[/]'.format(100 * growth(last_year, profit)),)
+        table.add_row('本日{:.2f}'.format(increase(last_day, profit) / 10000),
+                      '本周{:.2f}'.format(increase(last_week, profit) / 10000),
+                      '本月{:.2f}'.format(increase(last_month, profit) / 10000),
+                      '本季{:.2f}'.format(increase(last_quarter, profit) / 10000),
+                      '本年{:.2f}'.format(increase(last_year, profit) / 10000),)
+        Console().print(table)
 
         highest = max(session.query(ProfitStats), key=lambda p: p.total - p.init)
         drawdown = 0
