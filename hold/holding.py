@@ -64,13 +64,9 @@ def run_hold_stats():
     holdings = {}
     with Session.begin() as session:
         for hold in session.query(Holding):
-            if hold.code not in holdings:
-                holdings[hold.code] = {}
-                holdings[hold.code]['amount'] = hold.amount
-                holdings[hold.code]['cost'] = hold.cost
-            else:
-                holdings[hold.code]['amount'] += hold.amount
-                holdings[hold.code]['cost'] += hold.cost
+            holdings.setdefault(hold.code, {'amount': 0, 'cost': 0})
+            holdings[hold.code]['amount'] += hold.amount
+            holdings[hold.code]['cost'] += hold.cost
 
         for code, hold in holdings.items():
             stat = session.query(HoldStats).filter(HoldStats.code==code).\

@@ -3,6 +3,7 @@ import asyncio
 import click
 
 from .dividend import dividend
+from .flag_month import flag_month
 from .holding import holding
 from .profit import profit
 from .trade import trade
@@ -17,6 +18,7 @@ def cli(ctx, readonly):
         asyncio.run(holding(readonly))
 
 cli.add_command(dividend)
+cli.add_command(flag_month)
 cli.add_command(profit)
 cli.add_command(trade)
 cli.add_command(transfer)
