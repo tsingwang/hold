@@ -147,6 +147,7 @@ def run_profit_stats():
             debt += account.debt
 
         for hold in session.query(Holding):
+            assert hold.stock is not None, f"{hold.code} not existed"
             if hold.stock.type == "CASH":
                 cash_total += prices[hold.code] * hold.amount
             elif hold.stock.type == "A":

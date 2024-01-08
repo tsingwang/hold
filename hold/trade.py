@@ -2,7 +2,7 @@ import datetime
 
 import click
 
-from .db import Session, Account, Holding, TradeHistory
+from .db import Session, Stock, Account, Holding, TradeHistory
 
 
 @click.command()
@@ -17,6 +17,9 @@ def trade(date, account_id, code, price, amount, note):
     cost = price * amount
 
     with Session.begin() as session:
+        stock = session.query(Stock).filter(Stock.code==code).first()
+        assert stock is not None, f"{code} not existed"
+
         session.add(TradeHistory(date=date, account_id=account_id, code=code,
                                  price=price, amount=amount, note=note))
 
@@ -38,6 +41,6 @@ def trade(date, account_id, code, price, amount, note):
 
         assert hold.amount >= 0, f"账户{account.id} {hold.code} 数量不能为负数"
 
-        print(f"账户{account.id} {hold.code} {price} {amount}股 剩余{hold.amount}股 余额{account.cash}")
+        print(f"账户{account.id} {stock.name}({hold.code}) {price} {amount}股 剩余{hold.amount}股 余额{account.cash}")
 
         click.confirm('Are you sure?', abort=True)
