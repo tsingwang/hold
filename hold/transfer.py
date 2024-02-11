@@ -12,6 +12,6 @@ def transfer(account_id, amount):
         account.init += amount
         account.cash += amount
         assert account.cash >= 0, f"账户{account.id} 现金不能为负"
-        print(f"账户{account.id} 本金{account.init} 现金{account.cash}")
+        print(f"账户{account.id} 变动{amount} 本金{account.init} 现金{account.cash}")
 
         click.confirm('Are you sure?', abort=True)

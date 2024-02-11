@@ -3,44 +3,56 @@ import datetime
 import click
 
 from .db import Session, Stock, Account, Holding, TradeHistory
+from .utils import get_future_info
 
 
 @click.command()
 @click.argument("account_id", type=int)
+@click.argument("direction", type=click.Choice(['B', 'S']))
 @click.argument("code")
 @click.argument("price", type=float)
 @click.argument("amount", type=int)
 @click.option("-d", "--date", default=datetime.date.today())
 @click.option("-n", "--note", default="")
-def trade(date, account_id, code, price, amount, note):
+def trade(date, account_id, code, price, amount, direction, note):
     date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
-    cost = price * amount
-
     with Session.begin() as session:
         stock = session.query(Stock).filter(Stock.code==code).first()
         assert stock is not None, f"{code} not existed"
 
         session.add(TradeHistory(date=date, account_id=account_id, code=code,
-                                 price=price, amount=amount, note=note))
+                                 price=price, amount=amount, direction=direction,
+                                 note=note))
 
-        # 1. Update Account cash
-        account = session.query(Account).get(account_id)
-        account.cash -= cost
-        assert account.cash >= 0, f"账户{account.id} 现金不足，无法买入"
+        cost = price * amount
+        future = get_future_info(code)
+        if future:
+            cost *= future["unit"]
 
-        # 2. Update Holding amount and cost
+        # 1. Update Holding amount and cost
         hold = session.query(Holding).filter(Holding.account_id==account_id).\
-                                      filter(Holding.code==code).first()
+                                      filter(Holding.code==code).\
+                                      filter(Holding.direction==direction).first()
         if hold is None:
-            hold = Holding(account_id=account_id, code=code, amount=amount,
-                           cost=cost)
+            hold = Holding(account_id=account_id, code=code, direction=direction,
+                           amount=amount, cost=cost)
             session.add(hold)
         else:
+            if future and direction == "S" and amount < 0:
+                # Sell Close
+                cost += (hold.cost / hold.amount - price*future['unit']) * amount * 2
             hold.cost += cost
             hold.amount += amount
 
-        assert hold.amount >= 0, f"账户{account.id} {hold.code} 数量不能为负数"
+        assert hold.amount >= 0, f"账户{account_id} {code} 数量不能为负数"
 
-        print(f"账户{account.id} {stock.name}({hold.code}) {price} {amount}股 剩余{hold.amount}股 余额{account.cash}")
+        # 2. Update Account cash
+        account = session.query(Account).get(account_id)
+        account.cash -= cost
+        if not future:
+            assert account.cash >= 0, f"账户{account.id} 现金不足，无法买入"
+
+        print(f"账户{account.id} {direction} {stock.name}({code}) "
+              f"{price} {amount}股 剩余{hold.amount}股 余额{account.cash}")
 
         click.confirm('Are you sure?', abort=True)

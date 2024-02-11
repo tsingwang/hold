@@ -24,7 +24,7 @@ class Stock(Base):
 
     code = Column(String(10), primary_key=True)
     name = Column(String(32))
-    type = Column(Enum("CASH", "A", "B", "CB", "ETF", "ETF_HK", "ETF_US"))
+    type = Column(Enum("CASH", "A", "B", "CB", "ETF", "ETF_HK", "ETF_US", "F"))
 
 
 class Account(Base):
@@ -44,12 +44,13 @@ class Holding(Base):
 
     id = Column(Integer, primary_key=True)
     code = Column(String(10), ForeignKey("stock.code"))
+    direction = Column(Enum("B", "S"), default="B")
     amount = Column(Integer)
     cost = Column(Integer)
     account_id = Column(Integer, ForeignKey("accounts.id"))
     account = relationship("Account", backref=backref("holdings"))
     stock = relationship("Stock")
-    UniqueConstraint(account_id, code)
+    UniqueConstraint(account_id, code, direction)
 
 
 class TradeHistory(Base):
@@ -58,6 +59,7 @@ class TradeHistory(Base):
     id = Column(Integer, primary_key=True)
     date = Column(Date, default=datetime.date.today())
     code = Column(String(10), ForeignKey("stock.code"))
+    direction = Column(Enum("B", "S"), default="B")
     amount = Column(Integer)
     price = Column(Float)
     note = Column(String(512))
@@ -82,11 +84,12 @@ class HoldStats(Base):
     id = Column(Integer, primary_key=True)
     date = Column(Date, default=datetime.date.today())
     code = Column(String(10), ForeignKey("stock.code"))
+    direction = Column(Enum("B", "S"), default="B")
     amount = Column(Integer)
     cost = Column(Integer)
     value = Column(Integer)
     stock = relationship("Stock")
-    UniqueConstraint(date, code)
+    UniqueConstraint(date, code, direction)
 
 
 class ProfitStats(Base):
@@ -102,6 +105,7 @@ class ProfitStats(Base):
     etf = Column(Integer)
     etf_hk = Column(Integer)
     etf_us = Column(Integer)
+    f = Column(Integer)
     flag_week = Column(Boolean, default=False)
     flag_month = Column(Boolean, default=False)
     flag_quarter = Column(Boolean, default=False)
