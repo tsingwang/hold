@@ -3,6 +3,7 @@ import datetime
 
 import akshare as ak
 import pandas as pd
+import numpy as np
 from rich.console import Console
 from rich.table import Table
 from txd.services import xueqiu, currency
@@ -153,7 +154,7 @@ def show_hold_stats():
                          100 * h.value / total] for h in _list[i:i+20]]
                 tmp_df = pd.DataFrame(data, columns=["", "市值", "仓位"])
                 df = pd.concat([df, tmp_df], axis=1)
-        df.fillna("", inplace=True)
+        df.replace(np.nan, '', inplace=True)
         df.index += 1
         print(df)
 
@@ -217,18 +218,18 @@ def show_profit_stats():
                       'B股{:.2f}%'.format(100 * profit.b / profit.total),
                       '转债{:.2f}%'.format(100 * profit.cb / profit.total),
                       'ETF{:.2f}%'.format(100 * profit.etf / profit.total),
-                      'HK{:.2f}%'.format(100 * profit.etf_hk / profit.total),
-                      'US{:.2f}%'.format(100 * profit.etf_us / profit.total),
-                      '期货{:.2f}%'.format(100 * profit.f / profit.total),
+                      '港股{:.2f}%'.format(100 * profit.etf_hk / profit.total),
+                      '美股{:.2f}%'.format(100 * profit.etf_us / profit.total),
+                      '期指{:.2f}%'.format(100 * profit.f / profit.total),
                       '现金{:.2f}%'.format(100 * profit.cash / profit.total),
                       '[red]仓位{:.2f}%[/]'.format(100 - 100 * profit.cash / profit.total))
         table.add_row('A股{:.2f}'.format(profit.a / 10000),
                       'B股{:.2f}'.format(profit.b / 10000),
                       '转债{:.2f}'.format(profit.cb / 10000),
                       'ETF{:.2f}'.format(profit.etf / 10000),
-                      'HK{:.2f}'.format(profit.etf_hk / 10000),
-                      'US{:.2f}'.format(profit.etf_us / 10000),
-                      '期货{:.2f}'.format(profit.f / 10000),
+                      '港股{:.2f}'.format(profit.etf_hk / 10000),
+                      '美股{:.2f}'.format(profit.etf_us / 10000),
+                      '期指{:.2f}'.format(profit.f / 10000),
                       '现金{:.2f}'.format(profit.cash / 10000),)
         Console().print(table)
 

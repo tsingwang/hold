@@ -8,10 +8,10 @@ from .utils import get_future_info
 
 @click.command()
 @click.argument("account_id", type=int)
-@click.argument("direction", type=click.Choice(['B', 'S']))
 @click.argument("code")
 @click.argument("price", type=float)
 @click.argument("amount", type=int)
+@click.option("--direction", type=click.Choice(['B', 'S']), default='B')
 @click.option("-d", "--date", default=datetime.date.today())
 @click.option("-n", "--note", default="")
 def trade(date, account_id, code, price, amount, direction, note):
