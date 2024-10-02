@@ -2,6 +2,7 @@ import asyncio
 
 import click
 
+from .cb import cb
 from .dividend import dividend
 from .flag_month import flag_month
 from .holding import holding
@@ -18,6 +19,7 @@ def cli(ctx, readonly):
     if ctx.invoked_subcommand is None:
         asyncio.run(holding(readonly))
 
+cli.add_command(cb)
 cli.add_command(dividend)
 cli.add_command(flag_month)
 cli.add_command(profit)

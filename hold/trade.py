@@ -20,10 +20,6 @@ def trade(date, account_id, code, price, amount, direction, note):
         stock = session.query(Stock).filter(Stock.code==code).first()
         assert stock is not None, f"{code} not existed"
 
-        session.add(TradeHistory(date=date, account_id=account_id, code=code,
-                                 price=price, amount=amount, direction=direction,
-                                 note=note))
-
         cost = price * amount
         future = get_future_info(code)
         if future:
@@ -44,7 +40,7 @@ def trade(date, account_id, code, price, amount, direction, note):
             hold.cost += cost
             hold.amount += amount
 
-        assert hold.amount >= 0, f"账户{account_id} {code} 数量不能为负数"
+        assert hold.amount >= 0, f"账户{account_id} {stock.name}({code}) 数量不足"
 
         # 2. Update Account cash
         account = session.query(Account).get(account_id)
@@ -52,7 +48,11 @@ def trade(date, account_id, code, price, amount, direction, note):
         if not future:
             assert account.cash >= 0, f"账户{account.id} 现金不足，无法买入"
 
-        print(f"账户{account.id} {direction} {stock.name}({code}) "
-              f"{price} {amount}股 剩余{hold.amount}股 余额{account.cash}")
+        print(f"账户{account.id} {direction} {stock.name}({code}) {price} {amount}股"
+              f"，变动后：{hold.amount}股 现金{account.cash}")
 
         click.confirm('Are you sure?', abort=True)
+
+        session.add(TradeHistory(date=date, account_id=account_id, code=code,
+                                 price=price, amount=amount, direction=direction,
+                                 note=note))
