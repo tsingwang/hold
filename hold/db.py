@@ -22,9 +22,9 @@ Base = declarative_base()
 class Stock(Base):
     __tablename__ = "stock"
 
-    code = Column(String(10), primary_key=True)
+    code = Column(String(32), primary_key=True)
     name = Column(String(32))
-    type = Column(Enum("CASH", "A", "B", "CB", "ETF", "ETF_HK", "ETF_US", "F"))
+    type = Column(Enum("CASH", "A", "B", "CB", "ETF", "ETF_HK", "ETF_US"))
 
 
 class Account(Base):
@@ -43,7 +43,7 @@ class Holding(Base):
     __tablename__ = "holdings"
 
     id = Column(Integer, primary_key=True)
-    code = Column(String(10), ForeignKey("stock.code"))
+    code = Column(String(32), ForeignKey("stock.code"))
     direction = Column(Enum("B", "S"), default="B")
     amount = Column(Integer)
     cost = Column(Integer)
@@ -58,7 +58,7 @@ class TradeHistory(Base):
 
     id = Column(Integer, primary_key=True)
     date = Column(Date, default=datetime.date.today())
-    code = Column(String(10), ForeignKey("stock.code"))
+    code = Column(String(32), ForeignKey("stock.code"))
     direction = Column(Enum("B", "S"), default="B")
     amount = Column(Integer)
     price = Column(Float)
@@ -73,7 +73,7 @@ class HoldHistory(Base):
 
     id = Column(Integer, primary_key=True)
     date = Column(Date, default=datetime.date.today())
-    code = Column(String(10), ForeignKey("stock.code"))
+    code = Column(String(32), ForeignKey("stock.code"))
     accumulated_profit = Column(Integer)
     stock = relationship("Stock", backref=backref("hold_hists"))
 
@@ -83,7 +83,7 @@ class HoldStats(Base):
 
     id = Column(Integer, primary_key=True)
     date = Column(Date, default=datetime.date.today())
-    code = Column(String(10), ForeignKey("stock.code"))
+    code = Column(String(32), ForeignKey("stock.code"))
     direction = Column(Enum("B", "S"), default="B")
     amount = Column(Integer)
     cost = Column(Integer)
@@ -105,7 +105,8 @@ class ProfitStats(Base):
     etf = Column(Integer)
     etf_hk = Column(Integer)
     etf_us = Column(Integer)
-    f = Column(Integer)
+    future = Column(Integer)
+    option = Column(Integer)
     flag_week = Column(Boolean, default=False)
     flag_month = Column(Boolean, default=False)
     flag_quarter = Column(Boolean, default=False)

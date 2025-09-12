@@ -6,10 +6,10 @@ import pandas as pd
 import numpy as np
 from rich.console import Console
 from rich.table import Table
-from txd.services import xueqiu, currency
+from txd.services import tencent, currency, eastmoney
 
 from .db import Session, Stock, Account, Holding, HoldHistory, HoldStats, ProfitStats
-from .utils import get_future_info
+from .utils import is_contract, is_future, is_option, contract_unit
 
 pd.set_option('display.precision', 2)
 pd.set_option('display.float_format', lambda x: '%.2f' % x)
@@ -25,14 +25,21 @@ async def fetch_prices():
     global prices
     with Session.begin() as session:
         code_set = {h.code for h in session.query(Holding)}
-        code_list = [c for c in code_set if get_future_info(c) is None]
-        quotes = await xueqiu.fetch_quotes(code_list)
+        code_list = [c for c in code_set if not is_contract(c)]
+        quotes = await tencent.fetch_quotes(code_list)
         prices = {q["code"]: q["current"] for q in quotes}
 
-        code_list = [c for c in code_set if get_future_info(c)]
+        code_list = [c for c in code_set if is_future(c)]
         for code in code_list:
             df = ak.futures_zh_spot(symbol=code, market="FF", adjust='0')
             prices[code] = float(df.iloc[0]['current_price'])
+
+        code_list = {c[:6] for c in code_set if is_option(c)}
+        if len(code_list) > 0:
+            for c in code_list:
+                for op in await eastmoney.fetch_option(c):
+                    prices[op['C_contractid']] = op['C_current']
+                    prices[op['P_contractid']] = op['P_current']
 
 
 def show_account_stats():
@@ -44,7 +51,12 @@ def show_account_stats():
             cash = account.cash
             sh, sz, b, other = 0, 0, 0, 0
             for hold in account.holdings:
-                if hold.stock.type == "CASH":
+                if is_contract(hold.code):
+                    if hold.direction == "B":
+                        other += prices[hold.code] * hold.amount * contract_unit(hold.code)
+                    if hold.direction == "S":
+                        other += hold.cost + hold.cost - prices[hold.code] * hold.amount * contract_unit(hold.code)
+                elif hold.stock.type == "CASH":
                     cash += prices[hold.code] * hold.amount
                 elif hold.stock.type == "A" and hold.code[0] == "6":
                     sh += prices[hold.code] * hold.amount
@@ -52,12 +64,6 @@ def show_account_stats():
                     sz += prices[hold.code] * hold.amount
                 elif hold.stock.type == "B":
                     b += prices[hold.code] * hold.amount * HKDCNY
-                elif hold.stock.type == "F":
-                    f = get_future_info(hold.code)
-                    if hold.direction == "B":
-                        other += prices[hold.code] * hold.amount * f["unit"]
-                    if hold.direction == "S":
-                        other += hold.cost + hold.cost - prices[hold.code] * hold.amount * f["unit"]
                 else:
                     other += prices[hold.code] * hold.amount
 
@@ -94,9 +100,8 @@ def run_hold_stats():
             stat.amount = hold['amount']
             stat.cost = hold['cost']
             stat.value = prices[code] * hold['amount']
-            f = get_future_info(code)
-            if f:
-                stat.value *= f['unit']
+            if is_contract(code):
+                stat.value *= contract_unit(code)
             if direction == 'S':
                 stat.value = stat.cost + (stat.cost - stat.value)
 
@@ -136,20 +141,18 @@ def show_hold_stats():
 
         res = [h for h in session.query(HoldStats).filter(HoldStats.date==last.date)]
         res.sort(key=lambda h: h.value, reverse=True)
-        f_list = list(filter(lambda h: h.stock.type == "F", res))
-        etf_list = list(filter(lambda h: "ETF" in h.stock.type, res))
-        stock_list = list(filter(lambda h: h.stock.type in ("A", "B",), res))
-        cb_list = list(filter(lambda h: h.stock.type == "CB", res))
+        etf_list = list(filter(lambda h: h.stock and "ETF" in h.stock.type, res))
+        stock_list = list(filter(lambda h: h.stock and h.stock.type in ("A", "B",), res))
+        cb_list = list(filter(lambda h: h.stock and h.stock.type == "CB", res))
         total = sum([h.value for h in res])
         for account in session.query(Account):
             total += account.cash + account.cash_outside
 
         df = pd.DataFrame()
-        f_list.extend(etf_list)
-        for _list in (f_list, stock_list, cb_list,):
+        for _list in (etf_list, stock_list, cb_list,):
             # limit 20 rows
             for i in range(0, len(_list), 20):
-                data = [[h.stock.name,
+                data = [[h.stock.name if h.stock else h.code,
                          h.value / 10000,
                          100 * h.value / total] for h in _list[i:i+20]]
                 tmp_df = pd.DataFrame(data, columns=["", "市值", "仓位"])
@@ -161,7 +164,7 @@ def show_hold_stats():
 
 def run_profit_stats():
     init_total, cash_total = 0, 0
-    A, B, CB, ETF, ETF_HK, ETF_US, F = 0, 0, 0, 0, 0, 0, 0
+    A, B, CB, ETF, ETF_HK, ETF_US, F, O = 0, 0, 0, 0, 0, 0, 0, 0
     cash_extra, debt = 0, 0
     with Session.begin() as session:
         for account in session.query(Account):
@@ -171,8 +174,18 @@ def run_profit_stats():
             debt += account.debt
 
         for hold in session.query(Holding):
-            assert hold.stock is not None, f"{hold.code} not existed"
-            if hold.stock.type == "CASH":
+            #assert hold.stock is not None, f"{hold.code} not existed"
+            if is_future(hold.code):
+                if hold.direction == "B":
+                    F += prices[hold.code] * hold.amount * contract_unit(hold.code)
+                elif hold.direction == "S":
+                    F += hold.cost + hold.cost - prices[hold.code] * hold.amount * contract_unit(hold.code)
+            elif is_option(hold.code):
+                if hold.direction == "B":
+                    O += prices[hold.code] * hold.amount * contract_unit(hold.code)
+                elif hold.direction == "S":
+                    O += hold.cost + hold.cost - prices[hold.code] * hold.amount * contract_unit(hold.code)
+            elif hold.stock.type == "CASH":
                 cash_total += prices[hold.code] * hold.amount
             elif hold.stock.type == "A":
                 A += prices[hold.code] * hold.amount
@@ -186,16 +199,10 @@ def run_profit_stats():
                 ETF_HK += prices[hold.code] * hold.amount
             elif hold.stock.type == "ETF_US":
                 ETF_US += prices[hold.code] * hold.amount
-            elif hold.stock.type == "F":
-                f = get_future_info(hold.code)
-                if hold.direction == "B":
-                    F += prices[hold.code] * hold.amount * f["unit"]
-                if hold.direction == "S":
-                    F += hold.cost + hold.cost - prices[hold.code] * hold.amount * f["unit"]
             else:
                 print("Unknow stock type: " + hold.stock.type)
 
-        total = cash_total + A + B + CB + ETF + ETF_HK + ETF_US + F
+        total = cash_total + A + B + CB + ETF + ETF_HK + ETF_US + F + O
 
         flag_week = today.weekday() == 4
         flag_month = today.day == calendar.monthrange(today.year, today.month)[1]
@@ -203,7 +210,8 @@ def run_profit_stats():
         flag_year = flag_quarter and today.month == 12
 
         profit = ProfitStats(date=today, init=init_total, total=total, cash=cash_total,
-                             a=A, b=B, cb=CB, etf=ETF, etf_hk=ETF_HK, etf_us=ETF_US, f=F,
+                             a=A, b=B, cb=CB, etf=ETF, etf_hk=ETF_HK, etf_us=ETF_US,
+                             future=F, option=O,
                              flag_week=flag_week, flag_month=flag_month,
                              flag_quarter=flag_quarter, flag_year=flag_year,
                              cash_extra=cash_extra, debt=debt)
@@ -220,7 +228,7 @@ def show_profit_stats():
                       'ETF{:.2f}%'.format(100 * profit.etf / profit.total),
                       '港股{:.2f}%'.format(100 * profit.etf_hk / profit.total),
                       '美股{:.2f}%'.format(100 * profit.etf_us / profit.total),
-                      '期指{:.2f}%'.format(100 * profit.f / profit.total),
+                      '期权{:.2f}%'.format(100 * profit.option / profit.total),
                       '现金{:.2f}%'.format(100 * profit.cash / profit.total),
                       '[red]仓位{:.2f}%[/]'.format(100 - 100 * profit.cash / profit.total))
         table.add_row('A股{:.2f}'.format(profit.a / 10000),
@@ -229,7 +237,7 @@ def show_profit_stats():
                       'ETF{:.2f}'.format(profit.etf / 10000),
                       '港股{:.2f}'.format(profit.etf_hk / 10000),
                       '美股{:.2f}'.format(profit.etf_us / 10000),
-                      '期指{:.2f}'.format(profit.f / 10000),
+                      '期权{:.2f}'.format(profit.option / 10000),
                       '现金{:.2f}'.format(profit.cash / 10000),)
         Console().print(table)
 
