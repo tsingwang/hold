@@ -41,6 +41,11 @@ async def fetch_prices():
                     prices[op['C_contractid']] = op['C_current']
                     prices[op['P_contractid']] = op['P_current']
 
+        for c in code_set:
+            if is_future(c) or is_option(c):
+                if c not in prices:
+                    prices[c] = 0   # expiration
+
 
 def show_account_stats():
     columns = ["", "本金", "市值", "沪市", "深市", "现金", "场外现金"]
@@ -102,13 +107,6 @@ def run_hold_stats():
             stat.value = prices[code] * hold['amount']
             if is_contract(code):
                 stat.value *= contract_unit(code)
-            if direction == 'S':
-                stat.value = stat.cost + (stat.cost - stat.value)
-
-            history = session.query(HoldHistory).filter(HoldHistory.code==code).\
-                order_by(HoldHistory.id.desc()).first()
-            if history:
-                stat.cost -= history.accumulated_profit
 
             session.add(stat)
 
@@ -118,7 +116,7 @@ def run_hold_stats():
                 continue
 
             # Account is empty with the stock, so the value is 0
-            accumulated_profit = 0 - hold.cost
+            accumulated_profit = 0 - hold.cost if hold.direction != 'S' else hold.cost - 0
             history = session.query(HoldHistory).filter(HoldHistory.code==hold.code).\
                 order_by(HoldHistory.id.desc()).first()
             if history:
@@ -141,6 +139,8 @@ def show_hold_stats():
 
         res = [h for h in session.query(HoldStats).filter(HoldStats.date==last.date)]
         res.sort(key=lambda h: h.value, reverse=True)
+        option_list = list(filter(lambda h: is_option(h.code), res))
+        future_list = list(filter(lambda h: is_future(h.code), res))
         etf_list = list(filter(lambda h: h.stock and "ETF" in h.stock.type, res))
         stock_list = list(filter(lambda h: h.stock and h.stock.type in ("A", "B",), res))
         cb_list = list(filter(lambda h: h.stock and h.stock.type == "CB", res))
@@ -159,6 +159,24 @@ def show_hold_stats():
                 df = pd.concat([df, tmp_df], axis=1)
         df.replace(np.nan, '', inplace=True)
         df.index += 1
+        print(df)
+
+        df = pd.DataFrame()
+        for _list in (option_list, future_list,):
+            _list.sort(key=lambda h: h.code)
+            # limit 20 rows
+            for i in range(0, len(_list), 20):
+                data = [[h.stock.name if h.stock else h.code,
+                         format(h.cost / h.amount / contract_unit(h.code), '.4f') \
+                                 if h.amount else '-',
+                         h.amount,
+                         h.value - h.cost if h.direction != 'S' else h.cost - h.value,
+                         ] for h in _list[i:i+20]]
+                tmp_df = pd.DataFrame(data, columns=["", "成本", "数量", "盈亏(元)"])
+                df = pd.concat([df, tmp_df], axis=1)
+        df.replace(np.nan, '', inplace=True)
+        df.index += 1
+        print()
         print(df)
 
 

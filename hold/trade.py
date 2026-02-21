@@ -20,10 +20,18 @@ def trade(date, account_id, code, price, amount, direction, note):
         stock = session.query(Stock).filter(Stock.code==code).first()
         name = stock.name if stock else '合约'
 
-        cost = price * amount
+        cash_changed = cost = price * amount
         if is_contract(code):
             cost *= contract_unit(code)
-            cost += contract_fee(code) * amount
+            cash_changed *= contract_unit(code)
+            if direction == "S":
+                # Sell, profit = (cost - fee) - value
+                cost -= contract_fee(code, price, amount, direction)
+                cash_changed += contract_fee(code, price, amount, direction)
+            else:
+                # default: profit = value - (cost + fee)
+                cost += contract_fee(code, price, amount, direction)
+                cash_changed += contract_fee(code, price, amount, direction)
 
         # 1. Update Holding amount and cost
         hold = session.query(Holding).filter(Holding.account_id==account_id).\
@@ -36,7 +44,7 @@ def trade(date, account_id, code, price, amount, direction, note):
         else:
             if direction == "S" and amount < 0:
                 # Sell Close
-                cost += (hold.cost / hold.amount - price * contract_unit(code)) * amount * 2
+                cash_changed += (hold.cost / hold.amount - price * contract_unit(code)) * amount * 2
             hold.cost += cost
             hold.amount += amount
 
@@ -44,7 +52,7 @@ def trade(date, account_id, code, price, amount, direction, note):
 
         # 2. Update Account cash
         account = session.query(Account).get(account_id)
-        account.cash -= cost
+        account.cash -= cash_changed
         assert account.cash >= 0, f"账户{account.id} 现金不足，无法买入"
 
         print(f"账户{account.id} {direction} {name}({code}) {price} {amount}股"

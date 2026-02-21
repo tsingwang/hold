@@ -37,7 +37,13 @@ def contract_unit(code):
         return 10000
     return 1
 
-def contract_fee(code):
+def contract_fee(code, price, amount, direction):
+    if price < 0.0001:
+        return 0
     if is_option(code):
-        return 1.7
+        if direction == 'S' and amount > 0:
+            # Sell Open
+            return 0
+        else:
+            return 1.7 * abs(amount)
     return 0
