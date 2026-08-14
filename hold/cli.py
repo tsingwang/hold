@@ -7,7 +7,7 @@ from .dividend import dividend
 from .flag_month import flag_month
 from .holding import holding
 from .profit import profit
-from .set_cash import set_cash
+from .set_cash import set_cash, set_cash_outside, set_debt
 from .trade import trade
 from .transfer import transfer
 
@@ -24,5 +24,7 @@ cli.add_command(dividend)
 cli.add_command(flag_month)
 cli.add_command(profit)
 cli.add_command(set_cash)
+cli.add_command(set_cash_outside)
+cli.add_command(set_debt)
 cli.add_command(trade)
 cli.add_command(transfer)

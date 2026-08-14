@@ -16,7 +16,7 @@ pd.set_option('display.width', 1000)
 def profit(show_by_month):
     today = datetime.date.today()
     columns = ["总本金", "市值", "总盈亏", "当期本金", "当期盈亏", "收益率",
-               "年化", "场外现金", "负债", "个人资产"]
+               "年化", "负债", "净资产"]
     index = []
     data = []
     with Session.begin() as session:
@@ -46,9 +46,8 @@ def profit(show_by_month):
                 (p.total - cur_init) / 10000,
                 100 * (p.total - cur_init) / cur_init,
                 100 * avg_rate,
-                p.cash_extra / 10000,
                 p.debt / 10000,
-                (p.total + p.cash_extra - p.debt) / 10000,
+                (p.total - p.debt) / 10000,
             ])
 
     print(pd.DataFrame(data, index, columns))

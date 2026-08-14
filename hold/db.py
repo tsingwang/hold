@@ -35,7 +35,6 @@ class Account(Base):
     init = Column(Integer)
     cash = Column(Integer)                      # 场内现金
     cash_outside = Column(Integer, default=0)   # 场外现金
-    cash_extra = Column(Integer, default=0)     # 额外的, 不参与收益率计算
     debt = Column(Integer, default=0)           # 负债
 
 
@@ -111,7 +110,6 @@ class ProfitStats(Base):
     flag_month = Column(Boolean, default=False)
     flag_quarter = Column(Boolean, default=False)
     flag_year = Column(Boolean, default=False)
-    cash_extra = Column(Integer)    # 额外的, 不参与收益率计算
     debt = Column(Integer)          # 负债
 
 

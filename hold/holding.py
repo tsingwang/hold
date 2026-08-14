@@ -183,12 +183,11 @@ def show_hold_stats():
 def run_profit_stats():
     init_total, cash_total = 0, 0
     A, B, CB, ETF, ETF_HK, ETF_US, F, O = 0, 0, 0, 0, 0, 0, 0, 0
-    cash_extra, debt = 0, 0
+    debt = 0
     with Session.begin() as session:
         for account in session.query(Account):
             init_total += account.init + account.cash_outside
             cash_total += account.cash + account.cash_outside
-            cash_extra += account.cash_extra
             debt += account.debt
 
         for hold in session.query(Holding):
@@ -232,7 +231,7 @@ def run_profit_stats():
                              future=F, option=O,
                              flag_week=flag_week, flag_month=flag_month,
                              flag_quarter=flag_quarter, flag_year=flag_year,
-                             cash_extra=cash_extra, debt=debt)
+                             debt=debt)
         session.merge(profit)
 
 
@@ -262,7 +261,7 @@ def show_profit_stats():
         print("总本金{:.2f} 总资产{:.2f} 净资产{:.2f}".\
             format(profit.init / 10000,
                    profit.total / 10000,
-                   (profit.total + profit.cash_extra - profit.debt) / 10000))
+                   (profit.total - profit.debt) / 10000))
 
         increase = lambda x, y: (y.total - y.init) - (x.total - x.init)
         growth = lambda x, y: increase(x, y) / (y.init + x.total - x.init)
